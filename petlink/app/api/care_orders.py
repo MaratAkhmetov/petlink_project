@@ -55,12 +55,16 @@ async def read_order(
 async def read_orders(
     skip: int = 0,
     limit: int = 20,
+    status: str | None = None,          # фильтр по статусу
+    order_by: str = "asc",              # сортировка по дате
     session: AsyncSession = Depends(get_db_session),
+    current_user: User = Depends(get_current_user),
 ):
-    """
-    Retrieve a list of care orders with pagination.
-    """
-    orders = await list_care_orders(session, skip=skip, limit=limit)
+    orders = await list_care_orders(
+        session, current_user, skip=skip, limit=limit,
+        status_filter=status,
+        order_by_date=order_by
+    )
     return orders
 
 
@@ -71,19 +75,7 @@ async def update_order(
     session: AsyncSession = Depends(get_db_session),
     current_user: User = Depends(get_current_user),
 ):
-    """
-    Update an existing care order partially.
-    """
-    try:
-        order = await get_care_order(session, order_id)
-    except NoResultFound:
-        raise HTTPException(status_code=404, detail="Care order not found")
-
-    # Optional: check ownership if needed
-    if order.owner_id != current_user.id:
-        raise HTTPException(status_code=403, detail="Not authorized to update this order")
-
-    updated_order = await update_care_order(session, order_id, order_data)
+    updated_order = await update_care_order(session, order_id, current_user, order_data)
     return updated_order
 
 
@@ -93,17 +85,5 @@ async def delete_order(
     session: AsyncSession = Depends(get_db_session),
     current_user: User = Depends(get_current_user),
 ):
-    """
-    Delete a care order by its ID.
-    """
-    try:
-        order = await get_care_order(session, order_id)
-    except NoResultFound:
-        raise HTTPException(status_code=404, detail="Care order not found")
-
-    # Optional: check ownership if needed
-    if order.owner_id != current_user.id:
-        raise HTTPException(status_code=403, detail="Not authorized to delete this order")
-
-    await delete_care_order(session, order_id)
+    await delete_care_order(session, order_id, current_user)
     return

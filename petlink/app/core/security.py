@@ -10,10 +10,12 @@ from typing import Optional
 from passlib.context import CryptContext
 from jose import jwt, JWTError
 
-# Config constants (лучше вынести в env / config)
-SECRET_KEY = "your-secret-key"
-ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 * 7  # 7 days
+from app.core.config import settings
+
+
+SECRET_KEY = settings.secret_key
+ALGORITHM = settings.jwt_algorithm
+ACCESS_TOKEN_EXPIRE_MINUTES = settings.access_token_expire_minutes
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 

@@ -7,7 +7,7 @@ from app.api import auth, users, care_orders, proposals, chat
 
 app = FastAPI(title="PetLink API")
 
-# Разрешённые источники (твой React dev сервер)
+# Разрешённые источники (React dev сервер)
 origins = [
     "http://localhost:3000",
     "http://127.0.0.1:3000",

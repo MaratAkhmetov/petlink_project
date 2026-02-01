@@ -802,64 +802,68 @@ function App() {
             )}
 
             {/* Create Order и Orders показываем, когда залогинен */}
-            <h2 style={{ marginTop: 30 }}>Create Order</h2>
-            <div style={{ marginBottom: 8 }}>
-              <input
-                placeholder="Title"
-                value={newOrder.title}
-                onChange={(e) => setNewOrder({ ...newOrder, title: e.target.value })}
-                style={{ width: "100%" }}
-              />
-              {orderErrors.title && (
-                <small style={{ color: "red" }}>{orderErrors.title}</small>
-              )}
-              <small style={{ color: "#666" }}>
-                Title length: 3-100 characters
-              </small>
-            </div>
+            {role === "owner" && (
+              <>
+                <h2 style={{ marginTop: 30 }}>Create Order</h2>
+                <div style={{ marginBottom: 8 }}>
+                  <input
+                    placeholder="Title"
+                    value={newOrder.title}
+                    onChange={(e) => setNewOrder({ ...newOrder, title: e.target.value })}
+                    style={{ width: "100%" }}
+                  />
+                  {orderErrors.title && (
+                    <small style={{ color: "red" }}>{orderErrors.title}</small>
+                  )}
+                  <small style={{ color: "#666" }}>
+                    Title length: 3-100 characters
+                  </small>
+                </div>
 
-            <div style={{ marginBottom: 8 }}>
-              <textarea
-                placeholder="Description"
-                value={newOrder.description}
-                onChange={(e) => setNewOrder({ ...newOrder, description: e.target.value })}
-                style={{ width: "100%" }}
-              />
-              {orderErrors.description && (
-                <small style={{ color: "red" }}>{orderErrors.description}</small>
-              )}
-              <small style={{ color: "#666" }}>
-                Description max 1000 characters (optional)
-              </small>
-            </div>
+                <div style={{ marginBottom: 8 }}>
+                  <textarea
+                    placeholder="Description"
+                    value={newOrder.description}
+                    onChange={(e) => setNewOrder({ ...newOrder, description: e.target.value })}
+                    style={{ width: "100%" }}
+                  />
+                  {orderErrors.description && (
+                    <small style={{ color: "red" }}>{orderErrors.description}</small>
+                  )}
+                  <small style={{ color: "#666" }}>
+                    Description max 1000 characters (optional)
+                  </small>
+                </div>
 
-            <div style={{ marginBottom: 8 }}>
-              <input
-                type="datetime-local"
-                value={newOrder.start_date}
-                onChange={(e) => setNewOrder({ ...newOrder, start_date: e.target.value })}
-                style={{ width: "100%" }}
-              />
-              {orderErrors.start_date && (
-                <small style={{ color: "red" }}>{orderErrors.start_date}</small>
-              )}
-              <small style={{ color: "#666" }}>Start date and time</small>
-            </div>
+                <div style={{ marginBottom: 8 }}>
+                  <input
+                    type="datetime-local"
+                    value={newOrder.start_date}
+                    onChange={(e) => setNewOrder({ ...newOrder, start_date: e.target.value })}
+                    style={{ width: "100%" }}
+                  />
+                  {orderErrors.start_date && (
+                    <small style={{ color: "red" }}>{orderErrors.start_date}</small>
+                  )}
+                  <small style={{ color: "#666" }}>Start date and time</small>
+                </div>
 
-            <div style={{ marginBottom: 8 }}>
-              <input
-                type="datetime-local"
-                value={newOrder.end_date}
-                onChange={(e) => setNewOrder({ ...newOrder, end_date: e.target.value })}
-                style={{ width: "100%" }}
-              />
-              {orderErrors.end_date && (
-                <small style={{ color: "red" }}>{orderErrors.end_date}</small>
-              )}
-              <small style={{ color: "#666" }}>End date and time</small>
-            </div>
+                <div style={{ marginBottom: 8 }}>
+                  <input
+                    type="datetime-local"
+                    value={newOrder.end_date}
+                    onChange={(e) => setNewOrder({ ...newOrder, end_date: e.target.value })}
+                    style={{ width: "100%" }}
+                  />
+                  {orderErrors.end_date && (
+                    <small style={{ color: "red" }}>{orderErrors.end_date}</small>
+                  )}
+                  <small style={{ color: "#666" }}>End date and time</small>
+                </div>
 
-            <button onClick={handleCreateOrder}>Create</button>
+                <button onClick={handleCreateOrder}>Create</button>
+              </>
+            )}
           </>
         )}
 
@@ -896,22 +900,41 @@ function App() {
             >
               <h3>{selectedOrder.title}</h3>
               <p>{selectedOrder.description}</p>
-              <button
-                onClick={() => handleDeleteOrder(selectedOrder.id)}
-                style={{
-                  position: "absolute",
-                  top: 10,
-                  right: 10,
-                  background: "red",
-                  color: "white",
-                  border: "none",
-                  borderRadius: 4,
-                  padding: "4px 8px",
-                  cursor: "pointer",
-                }}
-              >
-                Delete Order
-              </button>
+              <p>
+                <b>Status:</b>{" "}
+                <span
+                  style={{
+                    color:
+                      selectedOrder.status === "open"
+                        ? "green"
+                        : selectedOrder.status === "in_progress"
+                        ? "orange"
+                        : selectedOrder.status === "completed"
+                        ? "blue"
+                        : "gray",
+                  }}
+                >
+                  {selectedOrder.status}
+                </span>
+              </p>
+              {selectedOrder.owner?.id === userId && (
+                <button
+                  onClick={() => handleDeleteOrder(selectedOrder.id)}
+                  style={{
+                    position: "absolute",
+                    top: 10,
+                    right: 10,
+                    background: "red",
+                    color: "white",
+                    border: "none",
+                    borderRadius: 4,
+                    padding: "4px 8px",
+                    cursor: "pointer",
+                  }}
+                >
+                  Delete Order
+                </button>
+              )}
             </div>
 
 
@@ -924,12 +947,15 @@ function App() {
                 <b>From:</b> {selectedOrder.start_date ? selectedOrder.start_date.slice(0, 10) : ""}{" "}
                 <b>To:</b> {selectedOrder.end_date ? selectedOrder.end_date.slice(0, 10) : ""}
               </p>
-              {!isEditingOrder && (
-                <button onClick={() => startEditOrder(selectedOrder)}>Edit Order</button>
+              {selectedOrder.owner?.id === userId && !isEditingOrder && (
+                <button onClick={() => startEditOrder(selectedOrder)}>
+                  Edit Order
+                </button>
               )}
+
             </div>
 
-            {isEditingOrder && (
+            {selectedOrder.owner?.id === userId && isEditingOrder && (
               <div style={{ display: "flex", flexDirection: "column", gap: 12, maxWidth: 400 }}>
                 <h3>Edit Order</h3>
                 <label>
