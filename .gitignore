@@ -1,0 +1,69 @@
+# =========================
+# Python / Backend
+# =========================
+
+# Byte-compiled / optimized files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environment
+venv/
+
+# Environment variables
+.env
+.env.*
+
+# Alembic migrations (generated files)
+alembic/versions/
+
+# Python tooling
+.pytest_cache/
+.mypy_cache/
+htmlcov/
+.coverage
+coverage.xml
+
+# Local backend settings
+local_settings.py
+
+
+# =========================
+# Node.js / Frontend
+# =========================
+
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Build output
+build/
+coverage/
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+
+# =========================
+# Docker
+# =========================
+
+*.log
+docker-compose.override.yml
+
+
+# =========================
+# IDE / OS
+# =========================
+
+# VS Code
+.vscode/
+
+# macOS
+.DS_Store
+
+# JetBrains
+.idea/
