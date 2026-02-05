@@ -1,10 +1,11 @@
 """Service functions for managing care orders."""
 
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, and_
 from sqlalchemy.future import select
 from sqlalchemy.orm import joinedload
 from fastapi import HTTPException
+from datetime import datetime
 
 from app.models.care_order import CareOrder, OrderStatus
 from app.models.user import User, UserRole
@@ -62,31 +63,56 @@ async def list_care_orders(
     skip: int = 0,
     limit: int = 20,
     status_filter: str | None = None,
-    order_by_date: str = "asc"  # "asc" или "desc"
+    order_by_date: str = "asc",
+    start_date_from: datetime | None = None,
+    start_date_to: datetime | None = None,
+    end_date_from: datetime | None = None,
+    end_date_to: datetime | None = None,
 ) -> list[CareOrder]:
+
     query = select(CareOrder).options(joinedload(CareOrder.owner))
-    
-    # Фильтр по ролям
+
+    # 👤 OWNER — только свои
     if current_user.role == UserRole.owner:
-        # владелец видит только свои заказы
         query = query.where(CareOrder.owner_id == current_user.id)
+
+    # 🐶 PETSITTER — все открытые
     elif current_user.role == UserRole.petsitter:
-        # питомцевид видит только открытые заказы всех владельцев
         query = query.where(CareOrder.status == "open")
+
     else:
         raise HTTPException(status_code=403, detail="Invalid role")
 
-    # фильтр по статусу, если передан
-    if status_filter:
-        query = query.where(CareOrder.status == status_filter)
+    filters = []
 
-    # сортировка по дате
+    # статус фильтр — только owner
+    if status_filter and current_user.role == UserRole.owner:
+        filters.append(CareOrder.status == status_filter)
+
+    # фильтр по датам
+    if start_date_from:
+        filters.append(CareOrder.start_date >= start_date_from)
+
+    if start_date_to:
+        filters.append(CareOrder.start_date <= start_date_to)
+
+    if end_date_from:
+        filters.append(CareOrder.end_date >= end_date_from)
+
+    if end_date_to:
+        filters.append(CareOrder.end_date <= end_date_to)
+
+    if filters:
+        query = query.where(and_(*filters))
+
+    # сортировка
     if order_by_date.lower() == "asc":
         query = query.order_by(CareOrder.start_date.asc())
     else:
         query = query.order_by(CareOrder.start_date.desc())
 
     query = query.offset(skip).limit(limit)
+
     result = await session.execute(query)
     return result.scalars().all()
 

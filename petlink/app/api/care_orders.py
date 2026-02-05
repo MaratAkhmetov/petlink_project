@@ -1,5 +1,6 @@
 """API routes for managing care orders."""
 
+from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import NoResultFound
@@ -55,15 +56,27 @@ async def read_order(
 async def read_orders(
     skip: int = 0,
     limit: int = 20,
-    status: str | None = None,          # фильтр по статусу
-    order_by: str = "asc",              # сортировка по дате
+    status: str | None = None,
+    order_by: str = "asc",
+
+    date_from: str | None = None,
+    date_to: str | None = None,
+
     session: AsyncSession = Depends(get_db_session),
     current_user: User = Depends(get_current_user),
 ):
+    start_from = datetime.fromisoformat(date_from) if date_from else None
+    start_to = datetime.fromisoformat(date_to) if date_to else None
+
     orders = await list_care_orders(
-        session, current_user, skip=skip, limit=limit,
+        session,
+        current_user,
+        skip=skip,
+        limit=limit,
         status_filter=status,
-        order_by_date=order_by
+        order_by_date=order_by,
+        start_date_from=start_from,
+        start_date_to=start_to,
     )
     return orders
 

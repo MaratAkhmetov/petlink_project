@@ -58,6 +58,12 @@ function App() {
     status: "open",
   });
 
+
+  const [statusFilter, setStatusFilter] = useState("");
+  const [startDateFilter, setStartDateFilter] = useState("");
+  const [endDateFilter, setEndDateFilter] = useState("");
+  const [sortOrder, setSortOrder] = useState("asc");
+
  
   // Для редактирования профиля
   const [isEditingProfile, setIsEditingProfile] = useState(false);
@@ -92,15 +98,21 @@ function App() {
 
 
   useEffect(() => {
-    if (token) {
-      fetch("/care_orders/", {
-        headers: { Authorization: `Bearer ${token}` },
-      })
-        .then((res) => res.json())
-        .then((data) => setOrders(data))
-        .catch((err) => console.error("Failed to fetch orders:", err));
-    }
-  }, [token]);
+    if (!token) return;
+
+    let url = `/care_orders/?order_by=${sortOrder}`;
+
+    if (statusFilter) url += `&status=${statusFilter}`;
+    if (startDateFilter) url += `&date_from=${startDateFilter}`;
+    if (endDateFilter) url += `&date_to=${endDateFilter}`;
+
+    fetch(url, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then((res) => res.json())
+      .then((data) => setOrders(data))
+      .catch((err) => console.error("Failed to fetch orders:", err));
+  }, [token, statusFilter, startDateFilter, endDateFilter, sortOrder]);
 
   useEffect(() => {
     if (selectedOrder && token) {
@@ -527,7 +539,18 @@ function App() {
   };
 
   return (
-    <div style={{ display: "flex", padding: 20, fontFamily: "sans-serif" }}>
+    <div
+      style={{
+        display: "flex",
+        padding: 20,
+        fontFamily: "sans-serif",
+        minHeight: "100vh",
+        backgroundImage: "url('/bg.jpg')",
+        backgroundSize: "cover",
+        backgroundPosition: "center",
+        backgroundRepeat: "no-repeat",
+      }}
+    >
       <div style={{ width: "30%", borderRight: "1px solid #ccc", paddingRight: 20 }}>
         {!isLoggedIn ? (
           <>
@@ -867,6 +890,61 @@ function App() {
           </>
         )}
 
+        <h3>Filters</h3>
+
+        <div style={{ display: "flex", gap: 10, marginBottom: 15, flexWrap: "wrap" }}>
+
+          {/* статус только owner */}
+          {role === "owner" && (
+            <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
+              <option value="">All statuses</option>
+              <option value="open">Open</option>
+              <option value="in_progress">In progress</option>
+              <option value="completed">Completed</option>
+              <option value="canceled">Canceled</option>
+            </select>
+          )}
+
+          {/* date from */}
+          <div>
+            From:
+            <input
+              type="date"
+              value={startDateFilter}
+              onChange={(e) => setStartDateFilter(e.target.value)}
+            />
+          </div>
+
+          {/* date to */}
+          <div>
+            To:
+            <input
+              type="date"
+              value={endDateFilter}
+              onChange={(e) => setEndDateFilter(e.target.value)}
+            />
+          </div>
+
+          {/* сортировка */}
+          <select value={sortOrder} onChange={(e) => setSortOrder(e.target.value)}>
+            <option value="asc">Date ↑</option>
+            <option value="desc">Date ↓</option>
+          </select>
+
+          {/* reset */}
+          <button
+            onClick={() => {
+              setStatusFilter("");
+              setStartDateFilter("");
+              setEndDateFilter("");
+              setSortOrder("asc");
+            }}
+          >
+            Reset
+          </button>
+
+        </div>
+
         <h2>Orders</h2>
         {orders.length === 0 && <p>No orders</p>}
         {orders.map((order) => (
@@ -875,13 +953,21 @@ function App() {
             style={{
               padding: 10,
               margin: "10px 0",
-              background: selectedOrder?.id === order.id ? "#eee" : "#f9f9f9",
+              background: selectedOrder?.id === order.id 
+                ? "rgba(255, 255, 255, 0.95)"
+                : "rgba(255, 255, 255, 0.8)",
               cursor: "pointer",
               borderRadius: 4,
+              boxShadow: selectedOrder?.id === order.id
+                ? "0 4px 12px rgba(0,0,0,0.2)"
+                : "0 2px 6px rgba(0,0,0,0.1)",
             }}
             onClick={() => setSelectedOrder(order)}
           >
             Order: <strong>{order.title || order.id}</strong>
+            <p style={{ margin: "4px 0", color: "#555" }}>
+              {order.description ? order.description.slice(0, 60) + "..." : "No description"}
+            </p>
           </div>
         ))}
       </div>
@@ -893,14 +979,22 @@ function App() {
               style={{
                 marginBottom: 20,
                 position: "relative",
-                border: "1px solid #ccc",
-                padding: 10,
-                borderRadius: 4,
+                padding: 16,
+                borderRadius: 8,
+                background: "rgba(255, 255, 255, 0.6)",
+                boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
               }}
             >
-              <h3>{selectedOrder.title}</h3>
-              <p>{selectedOrder.description}</p>
-              <p>
+              <h3 style={{ marginBottom: 8 }}>{selectedOrder.title}</h3>
+              <p style={{ marginBottom: 6 }}>
+                <b>Author:</b> {selectedOrder.owner?.username || "Unknown"}
+              </p>
+              <p style={{ marginBottom: 6 }}>{selectedOrder.description}</p>
+              <p style={{ marginBottom: 0 }}>
+                <b>From:</b> {selectedOrder.start_date ? selectedOrder.start_date.slice(0, 16).replace("T", " ") : ""}{" "}
+                <b>To:</b> {selectedOrder.end_date ? selectedOrder.end_date.slice(0, 16).replace("T", " ") : ""}
+              </p>
+              <p style={{ marginTop: 6 }}>
                 <b>Status:</b>{" "}
                 <span
                   style={{
@@ -940,13 +1034,6 @@ function App() {
 
             {/* Added JSX to show order details and edit form */}
             <div>
-              <h2>{selectedOrder.title}</h2>
-              <p><b>Author:</b> {selectedOrder.owner?.username || "Unknown"}</p>
-              <p>{selectedOrder.description}</p>
-              <p>
-                <b>From:</b> {selectedOrder.start_date ? selectedOrder.start_date.slice(0, 10) : ""}{" "}
-                <b>To:</b> {selectedOrder.end_date ? selectedOrder.end_date.slice(0, 10) : ""}
-              </p>
               {selectedOrder.owner?.id === userId && !isEditingOrder && (
                 <button onClick={() => startEditOrder(selectedOrder)}>
                   Edit Order
@@ -995,9 +1082,9 @@ function App() {
                 <label>
                   Start Date:
                   <input
-                    type="date"
+                    type="datetime-local"
                     name="start_date"
-                    value={editOrderData.start_date}
+                    value={editOrderData.start_date || ""}
                     onChange={handleEditOrderChange}
                     style={{ width: "100%" }}
                   />
@@ -1009,9 +1096,9 @@ function App() {
                 <label>
                   End Date:
                   <input
-                    type="date"
+                    type="datetime-local"
                     name="end_date"
-                    value={editOrderData.end_date}
+                    value={editOrderData.end_date || ""}
                     onChange={handleEditOrderChange}
                     style={{ width: "100%" }}
                   />
@@ -1099,7 +1186,27 @@ function App() {
             </div>
           </>
         ) : (
-          <p>Select an order to view messages</p>
+          <div
+            style={{
+              padding: 20,
+              border: "1px solid #ccc",
+              borderRadius: 8,
+              background: "rgba(255,255,255,0.6)",
+              minHeight: "40vh",
+            }}
+          >
+            <h2>Welcome to PetLink!</h2>
+            <p>
+              PetLink — это онлайн-сервис, который помогает владельцам животных находить проверенных
+              петситтеров для передержки. Пользователи могут создавать заказы на уход за питомцем,
+              получать предложения от исполнителей и общаться в чате.
+            </p>
+            <p>
+              PetLink is an online platform that connects pet owners with trusted pet sitters for
+              temporary care. Users can create care orders, receive proposals from sitters, and
+              communicate directly via chat.
+            </p>
+          </div>
         )}
       </div>
     </div>
