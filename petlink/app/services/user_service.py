@@ -24,6 +24,11 @@ def to_user_read(user: User) -> UserRead:
         role=user.role,
         owner_rating=user.owner_rating,
         petsitter_rating=user.petsitter_rating,
+        avatar_url=user.avatar_url,
+        bio=user.bio,
+        pets=user.pets,
+        experience=user.experience,
+        city=user.city,
     )
 
 
@@ -36,12 +41,21 @@ async def create_user(session: AsyncSession, user_data: UserCreate) -> UserRead:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Username already exists")
 
     new_user = User(
-        username=user_data.username,
-        email=user_data.email,
-        hashed_password=hash_password(user_data.password),
-        role=user_data.role,
-        is_deleted=False,
-    )
+    username=user_data.username,
+    email=user_data.email,
+    hashed_password=hash_password(user_data.password),
+    role=user_data.role,
+    is_deleted=False,
+
+    avatar_url=user_data.avatar_url,
+    bio=user_data.bio,
+    pets=user_data.pets,
+    experience=user_data.experience,
+    city=user_data.city,
+
+    owner_rating=0.0,
+    petsitter_rating=0.0,
+)
     session.add(new_user)
     await session.commit()
     await session.refresh(new_user)
@@ -81,6 +95,21 @@ async def update_user(session: AsyncSession, user_id: int, user_data: UserUpdate
         user.role = user_data.role
     if user_data.password is not None:
         user.hashed_password = hash_password(user_data.password)
+
+    if user_data.avatar_url is not None:
+        user.avatar_url = user_data.avatar_url
+
+    if user_data.bio is not None:
+        user.bio = user_data.bio
+
+    if user_data.pets is not None:
+        user.pets = user_data.pets
+
+    if user_data.experience is not None:
+        user.experience = user_data.experience
+
+    if user_data.city is not None:
+        user.city = user_data.city
 
     await session.commit()
     await session.refresh(user)

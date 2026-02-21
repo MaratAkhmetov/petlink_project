@@ -26,12 +26,24 @@ class UserCreate(UserBase):
     """Schema for user registration. Includes password."""
     password: constr(min_length=8, max_length=128)
 
+    avatar_url: Optional[str] = None
+    bio: Optional[str] = None
+    pets: Optional[str] = None
+    experience: Optional[str] = None
+    city: Optional[str] = None
+    
 
 class UserRead(UserBase):
     """Schema for reading user information (excluding password)."""
     id: int
     owner_rating: float
     petsitter_rating: float
+
+    avatar_url: Optional[str] = None
+    bio: Optional[str] = None
+    pets: Optional[str] = None
+    experience: Optional[str] = None
+    city: Optional[str] = None
 
     class Config:
         orm_mode = True  # <-- исправлено с from_attributes на orm_mode
@@ -49,6 +61,11 @@ class UserUpdate(BaseModel):
     role: Optional[UserRole] = None
     password: Optional[constr(min_length=8, max_length=128)] = None
 
+    avatar_url: Optional[str] = None
+    bio: Optional[str] = None
+    pets: Optional[str] = None
+    experience: Optional[str] = None
+    city: Optional[str] = None
 
 
 class UserPublic(BaseModel):

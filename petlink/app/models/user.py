@@ -1,6 +1,6 @@
 """User model definition."""
 
-from sqlalchemy import Boolean, Column, Integer, String, Enum, Float
+from sqlalchemy import Boolean, Column, Integer, String, Enum, Float, Text
 from app.models.base import Base
 import enum
 
@@ -29,3 +29,9 @@ class User(Base):
     petsitter_rating = Column(Float, default=0.0, nullable=False)
 
     is_deleted = Column(Boolean, default=False, nullable=False)
+
+    avatar_url = Column(Text, nullable=True)
+    bio = Column(Text, nullable=True)
+    pets = Column(Text, nullable=True)
+    experience = Column(Text, nullable=True)
+    city = Column(Text, nullable=True)
