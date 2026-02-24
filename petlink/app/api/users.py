@@ -1,4 +1,6 @@
-from fastapi import APIRouter, Depends, status, HTTPException
+import os
+from fastapi import APIRouter, Depends, status, HTTPException, UploadFile, File
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.responses import Response
 from pydantic import BaseModel
@@ -13,6 +15,8 @@ from app.services.user_service import (
 )
 from app.db.database import get_db_session
 from app.core.security import verify_password
+
+AVATAR_DIR = "static/avatars"
 
 router = APIRouter(prefix="/users", tags=["Users"])
 
@@ -55,3 +59,36 @@ async def delete_profile(
 
     await delete_user(session, user_id)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.post("/{user_id}/avatar")
+async def upload_avatar(
+    user_id: int,
+    file: UploadFile = File(...),
+    session: AsyncSession = Depends(get_db_session),
+):
+    # 1. Проверяем пользователя
+    result = await session.execute(
+        select(User).where(User.id == user_id, User.is_deleted == False)
+    )
+    user = result.scalars().first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    # 2. Создаём папку если нет
+    os.makedirs(AVATAR_DIR, exist_ok=True)
+
+    # 3. Сохраняем файл
+    file_extension = file.filename.split(".")[-1]
+    file_path = f"{AVATAR_DIR}/user_{user_id}.{file_extension}"
+
+    with open(file_path, "wb") as buffer:
+        buffer.write(await file.read())
+
+    # 4. Сохраняем URL в БД
+    user.avatar_url = f"/static/avatars/user_{user_id}.{file_extension}"
+
+    await session.commit()
+    await session.refresh(user)
+
+    return user

@@ -1,6 +1,7 @@
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware  # <-- импортируем CORS middleware
+from fastapi.staticfiles import StaticFiles
 from sqlalchemy.exc import IntegrityError
 
 from app.api import auth, users, care_orders, proposals, chat
@@ -56,3 +57,6 @@ async def integrity_error_handler(request: Request, exc: IntegrityError):
         status_code=409,
         content={"detail": detail}
     )
+
+
+app.mount("/static", StaticFiles(directory="static"), name="static")
