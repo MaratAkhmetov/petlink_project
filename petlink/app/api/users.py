@@ -5,6 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.responses import Response
 from pydantic import BaseModel
 
+from app.models.user import User
 from app.schemas.user import UserCreate, UserRead, UserUpdate
 from app.services.user_service import (
     create_user,

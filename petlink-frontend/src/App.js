@@ -26,6 +26,11 @@ function App() {
   const [username, setUsername] = useState(localStorage.getItem("username") || "");
   const [email, setEmail] = useState(""); // email пользователя
   const [role, setRole] = useState("owner"); // роль пользователя
+  const [regBio, setRegBio] = useState("");
+  const [regCity, setRegCity] = useState("");
+  const [regPets, setRegPets] = useState("");
+  const [regExperience, setRegExperience] = useState("");
+  const [avatarFile, setAvatarFile] = useState(null);
 
   const [password, setPassword] = useState("");
   const [isRegistering, setIsRegistering] = useState(false);
@@ -46,7 +51,29 @@ function App() {
     end_date: "",
   });
 
+  const [selectedProfile, setSelectedProfile] = useState(null);
+  const [profileLoading, setProfileLoading] = useState(false);
   
+  const openProfile = (id) => {
+  if (!token) return;
+
+  setProfileLoading(true);
+
+
+  fetch(`/users/${id}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  })
+    .then((res) => res.json())
+    .then((data) => {
+      setSelectedProfile(data);
+      setProfileLoading(false);
+    })
+    .catch(() => {
+      showToast("Failed to load profile", "error");
+      setProfileLoading(false);
+    });
+};
+
   const [toast, setToast] = useState(null);
 
 
@@ -73,6 +100,10 @@ function App() {
   const [editEmail, setEditEmail] = useState(email);
   const [editRole, setEditRole] = useState(role);
   const [editPassword, setEditPassword] = useState("");
+  const [editBio, setEditBio] = useState("");
+  const [editCity, setEditCity] = useState("");
+  const [editPets, setEditPets] = useState("");
+  const [editExperience, setEditExperience] = useState("");
 
   // Новое состояние для модального окна удаления профиля
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
@@ -101,6 +132,11 @@ function App() {
         .then((data) => {
           if (data.email) setEmail(data.email);
           if (data.role) setRole(data.role);
+
+          setEditBio(data.bio || "");
+          setEditCity(data.city || "");
+          setEditPets(data.pets || "");
+          setEditExperience(data.experience || "");
         })
         .catch(() => {
           // Игнорируем ошибки, например 401
@@ -290,25 +326,79 @@ const handleRegister = () => {
     return;
   }
 
+  // 1️⃣ Регистрируем пользователя
   fetch("/users/", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ username, email, password, role }),
+    body: JSON.stringify({
+      username,
+      email,
+      password,
+      role,
+      bio: regBio,
+      city: regCity,
+      pets: regPets,
+      experience: regExperience,
+    }),
   })
     .then((res) => {
       if (!res.ok) throw new Error("Registration failed");
       return res.json();
     })
     .then(() => {
-      showToast("Registration successful! You can now log in.", "success");
+      // 2️⃣ Автоматически логинимся
+      return fetch("/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username, password }),
+      });
+    })
+    .then((res) => {
+      if (!res.ok) throw new Error("Auto login failed");
+      return res.json();
+    })
+    .then((data) => {
+      if (!data.access_token) {
+        throw new Error("Missing access_token after login");
+      }
+
+      const decoded = parseJwt(data.access_token);
+      const userIdFromToken = decoded ? parseInt(decoded.sub, 10) : null;
+
+      if (!userIdFromToken) {
+        throw new Error("Cannot get user ID from token");
+      }
+
+      localStorage.setItem("token", data.access_token);
+      localStorage.setItem("userId", userIdFromToken);
+      localStorage.setItem("username", username);
+
+      setToken(data.access_token);
+      setUserId(userIdFromToken);
+
+      // 3️⃣ Загружаем аватар (если выбран)
+      if (avatarFile) {
+        const formData = new FormData();
+        formData.append("file", avatarFile);
+
+        fetch(`/users/${userIdFromToken}/avatar`, {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${data.access_token}`,
+          },
+          body: formData,
+        });
+      }
+
+      showToast("Registration successful!", "success");
+
       setIsRegistering(false);
-      setUsername("");
-      setEmail("");
       setPassword("");
-      setRole("owner");
       setErrors({});
     })
-    .catch((err) => showToast("Registration error: " + err.message, "error"));
+    .catch((err) =>
+      showToast("Registration error: " + err.message, "error")
+    );
 };
 
 // --- LOGOUT ---
@@ -351,13 +441,16 @@ const handleSendMessage = () => {
       return res.json();
     })
     .then((msg) => {
+      // Добавляем sender_id и sender объект для новых сообщений
       if (!msg.sender) msg.sender = { username };
+      msg.sender_id = userId; // ← обязательно, иначе openProfile не сработает
       setMessages((prev) => [...prev, msg]);
       setNewMessage("");
       showToast("Message sent", "success");
     })
     .catch((err) => showToast("Failed to send message: " + err.message, "error"));
 };
+
 
 // --- CREATE ORDER ---
 const handleCreateOrder = () => {
@@ -458,7 +551,15 @@ const handleDeleteMessage = (messageId) => {
 
 // --- PROFILE SAVE ---
 const handleProfileSave = () => {
-  const body = { username: editUsername, email: editEmail, role: editRole };
+  const body = {
+    username: editUsername,
+    email: editEmail,
+    role: editRole,
+    bio: editBio,
+    city: editCity,
+    pets: editPets,
+    experience: editExperience,
+  };
   if (editPassword.trim()) body.password = editPassword;
 
   fetch(`/users/${userId}`, {
@@ -479,6 +580,20 @@ const handleProfileSave = () => {
       setEmail(data.email);
       setRole(data.role);
       localStorage.setItem("username", data.username);
+
+      if (avatarFile) {
+        const formData = new FormData();
+        formData.append("file", avatarFile);
+
+        fetch(`/users/${userId}/avatar`, {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+          body: formData,
+        });
+      }
+
       setIsEditingProfile(false);
       setEditPassword("");
       showToast("Profile updated successfully", "success");
@@ -620,6 +735,42 @@ const handleDeleteProfile = () => {
                     {errors.role}
                   </small>
                 )}
+                <textarea
+                  placeholder="About me (optional)"
+                  value={regBio}
+                  onChange={(e) => setRegBio(e.target.value)}
+                  style={{ width: "100%", marginBottom: 4 }}
+                />
+
+                <input
+                  placeholder="City (optional)"
+                  value={regCity}
+                  onChange={(e) => setRegCity(e.target.value)}
+                  style={{ width: "100%", marginBottom: 4 }}
+                />
+
+                <input
+                  placeholder="Pets (optional)"
+                  value={regPets}
+                  onChange={(e) => setRegPets(e.target.value)}
+                  style={{ width: "100%", marginBottom: 4 }}
+                />
+
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => setAvatarFile(e.target.files[0])}
+                  style={{ marginBottom: 8 }}
+                />
+
+                {role === "petsitter" && (
+                  <textarea
+                    placeholder="Experience (optional)"
+                    value={regExperience}
+                    onChange={(e) => setRegExperience(e.target.value)}
+                    style={{ width: "100%", marginBottom: 4 }}
+                  />
+                )}
               </>
             )}
 
@@ -732,6 +883,42 @@ const handleDeleteProfile = () => {
                   onChange={(e) => setEditPassword(e.target.value)}
                   style={{ width: "100%", marginBottom: 8 }}
                 />
+                <textarea
+                  placeholder="About me"
+                  value={editBio}
+                  onChange={(e) => setEditBio(e.target.value)}
+                  style={{ width: "100%", marginBottom: 8 }}
+                />
+
+                <input
+                  placeholder="City"
+                  value={editCity}
+                  onChange={(e) => setEditCity(e.target.value)}
+                  style={{ width: "100%", marginBottom: 8 }}
+                />
+
+                <input
+                  placeholder="My pets"
+                  value={editPets}
+                  onChange={(e) => setEditPets(e.target.value)}
+                  style={{ width: "100%", marginBottom: 8 }}
+                />
+
+                {editRole === "petsitter" && (
+                  <textarea
+                    placeholder="Experience"
+                    value={editExperience}
+                    onChange={(e) => setEditExperience(e.target.value)}
+                    style={{ width: "100%", marginBottom: 8 }}
+                  />
+                )}
+
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => setAvatarFile(e.target.files[0])}
+                />
+
                 <button
                   onClick={handleProfileSave}
                   style={{
@@ -1048,7 +1235,73 @@ const handleDeleteProfile = () => {
 
       {/* --- RIGHT PANEL --- */}
       <div style={{ width: "70%", paddingLeft: 20 }}>
-        {selectedOrder ? (
+        {selectedProfile ? (
+          <div
+            style={{
+              background: "rgba(255,255,255,0.9)",
+              padding: 20,
+              borderRadius: 8,
+              boxShadow: "0 2px 6px rgba(0,0,0,0.1)",
+            }}
+          >
+            {profileLoading ? (
+              <p>Loading profile...</p>
+            ) : (
+              <>
+                <button
+                  onClick={() => setSelectedProfile(null)}
+                  style={{
+                    marginBottom: 10,
+                    background: "#95a5a6",
+                    color: "#fff",
+                    border: "none",
+                    padding: "6px 12px",
+                    borderRadius: 4,
+                    cursor: "pointer",
+                  }}
+                >
+                  Back
+                </button>
+
+                <div style={{ textAlign: "center" }}>
+                  <img
+                    src={
+                      selectedProfile.avatar_url
+                        ? `http://localhost:8000${selectedProfile.avatar_url}`
+                        : "/default-avatar.png"
+                    }
+                    alt="avatar"
+                    style={{
+                      width: 120,
+                      height: 120,
+                      borderRadius: "50%",
+                      objectFit: "cover",
+                      marginBottom: 12,
+                    }}
+                  />
+
+                  <h2>{selectedProfile.username}</h2>
+                  <p><strong>Role:</strong> {selectedProfile.role}</p>
+                  <p>
+                    ⭐ {selectedProfile.role === "petsitter"
+                      ? selectedProfile.petsitter_rating
+                      : selectedProfile.owner_rating}
+                  </p>
+                </div>
+
+                <hr />
+
+                <p><strong>City:</strong> {selectedProfile.city || "Not specified"}</p>
+                <p><strong>About:</strong> {selectedProfile.bio || "No info"}</p>
+                <p><strong>Pets:</strong> {selectedProfile.pets || "No pets listed"}</p>
+
+                {selectedProfile.role === "petsitter" && (
+                  <p><strong>Experience:</strong> {selectedProfile.experience || "No experience info"}</p>
+                )}
+              </>
+            )}
+          </div>
+        ) : selectedOrder ? (
           <div
             style={{
               background: "rgba(255,255,255,0.85)",
@@ -1154,7 +1407,13 @@ const handleDeleteProfile = () => {
                 </p>
 
                 <p>
-                  <strong>Author:</strong> {selectedOrder.owner?.username || "Unknown"}
+                  <strong>Author:</strong>{" "}
+                  <span
+                    style={{ color: "#3498db", cursor: "pointer" }}
+                    onClick={() => openProfile(selectedOrder.owner_id)}
+                  >
+                    {selectedOrder.owner?.username || "Unknown"}
+                  </span>
                 </p>
 
                 {userId === selectedOrder.owner_id && (
@@ -1211,7 +1470,12 @@ const handleDeleteProfile = () => {
                             borderRadius: 4,
                           }}
                         >
-                          <strong>{msg.sender?.username || "Unknown"}:</strong>{" "}
+                          <strong
+                            style={{ color: "#3498db", cursor: "pointer" }}
+                            onClick={() => openProfile(msg.sender_id || msg.sender?.id)}
+                          >
+                            {msg.sender?.username || "Unknown"}
+                          </strong>{" "}
                           {msg.content}
                           {userId === msg.sender_id && (
                             <button
