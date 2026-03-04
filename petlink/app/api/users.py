@@ -18,6 +18,8 @@ from app.db.database import get_db_session
 from app.core.security import verify_password
 
 AVATAR_DIR = "static/avatars"
+MAX_FILE_SIZE = 5 * 1024 * 1024
+ALLOWED_TYPES = {"image/jpeg", "image/jpg", "image/png", "image/webp"}
 
 router = APIRouter(prefix="/users", tags=["Users"])
 
@@ -76,20 +78,56 @@ async def upload_avatar(
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
 
-    # 2. Создаём папку если нет
+    # 2. Проверка типа файла
+    if file.content_type not in ALLOWED_TYPES:
+        raise HTTPException(status_code=400, detail="Invalid file type")
+
+    # 3. Читаем файл и проверяем размер
+    content = await file.read()
+    if len(content) > MAX_FILE_SIZE:
+        raise HTTPException(status_code=400, detail="File too large (max 5MB)")
+
+    # 4. Создаём папку если нет
     os.makedirs(AVATAR_DIR, exist_ok=True)
 
-    # 3. Сохраняем файл
+    # Удаляем предыдущий аватар, если есть
+    if user.avatar_url:
+        old_path = user.avatar_url.lstrip("/")
+        if os.path.exists(old_path):
+            os.remove(old_path)
+
+    # 5. Сохраняем файл
     file_extension = file.filename.split(".")[-1]
     file_path = f"{AVATAR_DIR}/user_{user_id}.{file_extension}"
 
     with open(file_path, "wb") as buffer:
-        buffer.write(await file.read())
+        buffer.write(content)
 
-    # 4. Сохраняем URL в БД
+    # 6. Обновляем URL
     user.avatar_url = f"/static/avatars/user_{user_id}.{file_extension}"
 
     await session.commit()
     await session.refresh(user)
 
     return user
+
+
+@router.delete("/{user_id}/avatar")
+async def delete_avatar(
+    user_id: int,
+    session: AsyncSession = Depends(get_db_session),
+):
+    user = await session.get(User, user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    if user.avatar_url:
+        file_path = user.avatar_url.lstrip("/")
+        if os.path.exists(file_path):
+            os.remove(file_path)
+
+    user.avatar_url = None
+    await session.commit()
+    await session.refresh(user)
+
+    return {"message": "Avatar deleted"}

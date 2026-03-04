@@ -31,6 +31,7 @@ function App() {
   const [regPets, setRegPets] = useState("");
   const [regExperience, setRegExperience] = useState("");
   const [avatarFile, setAvatarFile] = useState(null);
+  const [avatarUrl, setAvatarUrl] = useState(null);
 
   const [password, setPassword] = useState("");
   const [isRegistering, setIsRegistering] = useState(false);
@@ -137,6 +138,7 @@ function App() {
           setEditCity(data.city || "");
           setEditPets(data.pets || "");
           setEditExperience(data.experience || "");
+          setAvatarUrl(data.avatar_url);
         })
         .catch(() => {
           // Игнорируем ошибки, например 401
@@ -591,7 +593,12 @@ const handleProfileSave = () => {
             Authorization: `Bearer ${token}`,
           },
           body: formData,
-        });
+        })
+          .then(res => res.json())
+          .then(data => {
+            setAvatarUrl(data.avatar_url); // ← обновляем
+            setAvatarFile(null);
+          });
       }
 
       setIsEditingProfile(false);
@@ -600,6 +607,24 @@ const handleProfileSave = () => {
     })
     .catch((err) => showToast("Profile update error: " + err.message, "error"));
 };
+
+
+const handleDeleteAvatar = () => {
+  fetch(`/users/${userId}/avatar`, {
+    method: "DELETE",
+    headers: { Authorization: `Bearer ${token}` },
+  })
+    .then((res) => {
+      if (!res.ok) throw new Error("Failed to delete avatar");
+      setAvatarUrl(null);
+      setAvatarFile(null);
+      showToast("Avatar deleted", "success");
+    })
+    .catch((err) =>
+      showToast("Error deleting avatar: " + err.message, "error")
+    );
+};
+
 
 // --- DELETE PROFILE ---
 const handleDeleteProfile = () => {
@@ -855,6 +880,42 @@ const handleDeleteProfile = () => {
                 }}
               >
                 <h3>Edit Profile</h3>
+                <div style={{ textAlign: "center", marginBottom: 10 }}>
+                  <img
+                    src={
+                      avatarFile
+                        ? URL.createObjectURL(avatarFile)
+                        : avatarUrl
+                        ? `http://localhost:8000${avatarUrl}`
+                        : "/default-avatar.png"
+                    }
+                    alt="avatar"
+                    style={{
+                      width: 100,
+                      height: 100,
+                      borderRadius: "50%",
+                      objectFit: "cover",
+                      marginBottom: 8,
+                    }}
+                  />
+
+                  {avatarUrl && (
+                    <button
+                      onClick={handleDeleteAvatar}
+                      style={{
+                        background: "#e74c3c",
+                        color: "#fff",
+                        border: "none",
+                        padding: "4px 10px",
+                        borderRadius: 4,
+                        cursor: "pointer",
+                        fontSize: 12,
+                      }}
+                    >
+                      Delete Avatar
+                    </button>
+                  )}
+                </div>
                 <input
                   placeholder="Username"
                   value={editUsername}
